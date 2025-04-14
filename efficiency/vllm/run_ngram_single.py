@@ -54,7 +54,6 @@ def check_server_status(base_port):
 
 
 dataset_datapath_list = [
-    ["hf", "livecodebench/code_generation_lite"],
     ["hf", "AI-MO/aimo-validation-aime"],
     ["hf", "HuggingFaceH4/MATH-500"],
     ["hf", "Idavidrein/gpqa"],
@@ -131,7 +130,7 @@ if __name__ == "__main__":
         """
         server_cmd = (
             f"VLLM_USE_V1=1 vllm serve {model} --swap-space 32 --disable-log-requests "
-            f"--port {base_port} "
+            f"--port {base_port} --dtype bfloat16 --no-enable-prefix-caching "
             f"--speculative-config '{spec_config}'"
         )
         server_name = f"{model_basename}_ngram-{args.num_speculative_tokens}"
@@ -139,7 +138,7 @@ if __name__ == "__main__":
     else:
         server_cmd = (
             f"VLLM_USE_V1=1 vllm serve {model} --swap-space 32 --disable-log-requests "
-            f"--port {base_port}"
+            f"--port {base_port} --dtype bfloat16 --no-enable-prefix-caching "
         )
         server_name = f"{model_basename}_full"
 

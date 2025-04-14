@@ -2,11 +2,11 @@ dir=$(pwd)
 output_dir=$dir/results
 mkdir -p $output_dir
 
-model_name="deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+model_name="deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 # model_name="agentica-org/DeepCoder-14B-Preview"
 
 tp_rank=1
-num_requests=16
+num_requests=512
 
 
 
@@ -14,7 +14,7 @@ num_speculateve_tokens=3
 
 (
     port_num=30001
-    CUDA_VISIBLE_DEVICES=4 python3 run_ngram_single.py \
+    CUDA_VISIBLE_DEVICES=2 python3 run_ngram_single.py \
         --model-name $model_name \
         --num-requests $num_requests \
         --num-speculative-tokens $num_speculateve_tokens \
@@ -25,15 +25,17 @@ num_speculateve_tokens=3
 )&
 
 
-# (
-#     port_num=30002
-#     CUDA_VISIBLE_DEVICES=5 python3 run_ngram_single.py \
-#         --model-name $model_name \
-#         --num-requests $num_requests \
-#         --base-port $port_num \
-#         --output-dir $output_dir \
-#         --tp-rank $tp_rank
-# )&
+(
+    port_num=30002
+    CUDA_VISIBLE_DEVICES=3 python3 run_ngram_single.py \
+        --model-name $model_name \
+        --num-requests $num_requests \
+        --base-port $port_num \
+        --output-dir $output_dir \
+        --tp-rank $tp_rank
+)&
+
+wait
 
 # num_speculateve_tokens=4
 
