@@ -72,3 +72,5 @@ index 13158d93..f682a4ec 100644
 +
              if req.finished():
                  self.tree_cache.cache_finished_req(req)
+
+                 

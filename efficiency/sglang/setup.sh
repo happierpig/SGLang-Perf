@@ -1,5 +1,10 @@
 dir=$(pwd)
 
+# conda creat -n sglang-eagle python=3.12
+# conda activate sglang-eagle
+
+git submodule update --init --recursive
+
 # if setup.sh in not in dir, return
 if [ ! -f "$dir/setup.sh" ]; then
     echo "Please run this script from /efficiency/sglang"
@@ -7,11 +12,6 @@ if [ ! -f "$dir/setup.sh" ]; then
 fi
 
 cd $dir/../../3rdparty/sglang
-
-git submodule update --init --recursive
-
-# conda creat -n sglang-eagle python=3.12
-# conda activate sglang-eagle
 
 git apply ../sglang.patch
 ln -s $dir/../loop_detector.py ./python/sglang/srt/managers/loop_detector.py
