@@ -1,6 +1,7 @@
 dir=$(pwd)
 
 DEVICES=(3)
+
 TP_RANKS=(1)
 MEM_FRAC=(0.85)
 
@@ -31,23 +32,23 @@ for device in "${DEVICES[@]}"; do
 done
 
 
-for device in "${DEVICES[@]}"; do
-  for rank in "${TP_RANKS[@]}"; do
-    for mem in "${MEM_FRAC[@]}"; do
-      for tgt_model in "${TARGET_MODEL_PATHS[@]}"; do
-        for spec_model in "${SPEC_MODEL_PATHS[@]}"; do
-          for stride in "${SPEC_LEN_STRIDE[@]}"; do
-              for topk in "${SPEC_TOPK[@]}"; do
-                for num_req in "${NUM_REQUEST[@]}"; do
-                  for dataset in "${DATA_SET[@]}"; do
-                    echo "Running with: $device $rank $mem $tgt_model $spec_model $stride $stride $topk $num_req $dataset"
-                    bash "$dir/run_eagle_dataset_single.sh" "$device" "$rank" "$mem" "$tgt_model" "$spec_model" "$stride" "$stride" "$topk" "$num_req" "$dataset"
-                  done
-                done
-              done
-          done
-        done
-      done
-    done
-  done
-done
+# for device in "${DEVICES[@]}"; do
+#   for rank in "${TP_RANKS[@]}"; do
+#     for mem in "${MEM_FRAC[@]}"; do
+#       for tgt_model in "${TARGET_MODEL_PATHS[@]}"; do
+#         for spec_model in "${SPEC_MODEL_PATHS[@]}"; do
+#           for stride in "${SPEC_LEN_STRIDE[@]}"; do
+#               for topk in "${SPEC_TOPK[@]}"; do
+#                 for num_req in "${NUM_REQUEST[@]}"; do
+#                   for dataset in "${DATA_SET[@]}"; do
+#                     echo "Running with: $device $rank $mem $tgt_model $spec_model $stride $stride $topk $num_req $dataset"
+#                     bash "$dir/run_eagle_dataset_single.sh" "$device" "$rank" "$mem" "$tgt_model" "$spec_model" "$stride" "$stride" "$topk" "$num_req" "$dataset"
+#                   done
+#                 done
+#               done
+#           done
+#         done
+#       done
+#     done
+#   done
+# done
