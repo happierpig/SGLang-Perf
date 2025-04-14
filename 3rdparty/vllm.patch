@@ -1,0 +1,422 @@
+diff --git a/benchmarks/benchmark_dataset.py b/benchmarks/benchmark_dataset.py
+index 1d61485e..68a3254c 100644
+--- a/benchmarks/benchmark_dataset.py
++++ b/benchmarks/benchmark_dataset.py
+@@ -758,6 +758,20 @@ class InstructCoderDataset(HuggingFaceDataset):
+ # AIMO Dataset Implementation
+ # -----------------------------------------------------------------------------
+
++def get_system_prompt():
++    # Prompt Suggested by
++    # https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B
++
++    prompt = (
++        "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. "
++        "You should think step-by-step.\n"
++        "<|im_start|>user\n"
++        "{}"
++        "<|im_end|>\n"
++        "<|im_start|>assistant\n"
++    )
++
++    return prompt
+
+ class AIMODataset(HuggingFaceDataset):
+     """
+@@ -781,6 +795,9 @@ class AIMODataset(HuggingFaceDataset):
+                 break
+             prompt, completion = item['problem'], item["solution"]
+
++            system_prompt = get_system_prompt()
++            prompt = system_prompt.format(prompt)
++
+             prompt_ids = tokenizer(prompt).input_ids
+             completion_ids = tokenizer(completion).input_ids
+             prompt_len = len(prompt_ids)
+@@ -790,7 +807,53 @@ class AIMODataset(HuggingFaceDataset):
+             if dynamic_output and not is_valid_sequence(prompt_len,
+                                                         completion_len,
+                                                         max_prompt_len=2048,
+-                                                        max_total_len=32000):
++                                                        max_total_len=128*1024):
++                continue
++            sampled_requests.append(
++                SampleRequest(
++                    prompt=prompt,
++                    prompt_len=prompt_len,
++                    expected_output_len=112*1024, # Note that we use EOS to determine the comple
++                    multi_modal_data=None,
++                ))
++        self.maybe_oversample_requests(sampled_requests, num_requests)
++        return sampled_requests
++
++
++class MATH500Dataset(HuggingFaceDataset):
++    """
++    Dataset class for processing the MATH-500 dataset.
++    """
++    SUPPORTED_DATASET_PATHS = {
++        "HuggingFaceH4/MATH-500",
++    }
++
++    def sample(self,
++               tokenizer: PreTrainedTokenizerBase,
++               num_requests: int,
++               output_len: Optional[int] = None,
++               **kwargs) -> list:
++        sampled_requests = []
++        dynamic_output = output_len is None
++
++        for item in self.data:
++            if len(sampled_requests) >= num_requests:
++                break
++            prompt = item['problem']
++
++            system_prompt = get_system_prompt()
++            prompt = system_prompt.format(prompt)
++
++            prompt_ids = tokenizer(prompt).input_ids
++            prompt_len = len(prompt_ids)
++
++            completion_len = 112*1024
++            output_len = completion_len if dynamic_output else output_len
++            assert isinstance(output_len, int) and output_len > 0
++            if dynamic_output and not is_valid_sequence(prompt_len,
++                                                        completion_len,
++                                                        max_prompt_len=2048,
++                                                        max_total_len=128*1024):
+                 continue
+             sampled_requests.append(
+                 SampleRequest(
+@@ -801,3 +864,97 @@ class AIMODataset(HuggingFaceDataset):
+                 ))
+         self.maybe_oversample_requests(sampled_requests, num_requests)
+         return sampled_requests
++
++
++class GPQADataset(HuggingFaceDataset):
++    """
++    Dataset class for processing the GPQA dataset.
++    Need subset. E.g., "gpqa_diamond"
++    """
++    SUPPORTED_DATASET_PATHS = {
++        "Idavidrein/gpqa"
++    }
++
++    def sample(self,
++               tokenizer: PreTrainedTokenizerBase,
++               num_requests: int,
++               output_len: Optional[int] = None,
++               **kwargs) -> list:
++        sampled_requests = []
++        dynamic_output = output_len is None
++
++        for item in self.data:
++            if len(sampled_requests) >= num_requests:
++                break
++            prompt = item['Question']
++
++            system_prompt = get_system_prompt()
++            prompt = system_prompt.format(prompt)
++
++            prompt_ids = tokenizer(prompt).input_ids
++            prompt_len = len(prompt_ids)
++
++            completion_len = 112*1024
++            output_len = completion_len if dynamic_output else output_len
++            assert isinstance(output_len, int) and output_len > 0
++            if dynamic_output and not is_valid_sequence(prompt_len,
++                                                        completion_len,
++                                                        max_prompt_len=2048,
++                                                        max_total_len=128*1024):
++                continue
++            sampled_requests.append(
++                SampleRequest(
++                    prompt=prompt,
++                    prompt_len=prompt_len,
++                    expected_output_len=output_len,
++                    multi_modal_data=None,
++                ))
++        self.maybe_oversample_requests(sampled_requests, num_requests)
++        return sampled_requests
++
++
++class LCBDataset(HuggingFaceDataset):
++    """
++    Dataset class for processing LiveCodeBench
++    Need subset. E.g., "release_v5". Split is "test"
++    """
++    SUPPORTED_DATASET_PATHS = {
++        "livecodebench/code_generation_lite"
++    }
++
++    def sample(self,
++               tokenizer: PreTrainedTokenizerBase,
++               num_requests: int,
++               output_len: Optional[int] = None,
++               **kwargs) -> list:
++        sampled_requests = []
++        dynamic_output = output_len is None
++
++        for item in self.data:
++            if len(sampled_requests) >= num_requests:
++                break
++            prompt = item['question_content']
++
++            system_prompt = get_system_prompt()
++            prompt = system_prompt.format(prompt)
++
++            prompt_ids = tokenizer(prompt).input_ids
++            prompt_len = len(prompt_ids)
++
++            completion_len = 112*1024
++            output_len = completion_len if dynamic_output else output_len
++            assert isinstance(output_len, int) and output_len > 0
++            if dynamic_output and not is_valid_sequence(prompt_len,
++                                                        completion_len,
++                                                        max_prompt_len=2048,
++                                                        max_total_len=128*1024):
++                continue
++            sampled_requests.append(
++                SampleRequest(
++                    prompt=prompt,
++                    prompt_len=prompt_len,
++                    expected_output_len=output_len,
++                    multi_modal_data=None,
++                ))
++        self.maybe_oversample_requests(sampled_requests, num_requests)
++        return sampled_requests
+\ No newline at end of file
+diff --git a/benchmarks/benchmark_serving.py b/benchmarks/benchmark_serving.py
+index 59648222..934ecd32 100644
+--- a/benchmarks/benchmark_serving.py
++++ b/benchmarks/benchmark_serving.py
+@@ -49,7 +49,7 @@ try:
+ except ImportError:
+     from argparse import ArgumentParser as FlexibleArgumentParser
+
+-from benchmark_dataset import (AIMODataset, BurstGPTDataset,
++from benchmark_dataset import (AIMODataset, MATH500Dataset, GPQADataset, LCBDataset, BurstGPTDataset,
+                                ConversationDataset, HuggingFaceDataset,
+                                InstructCoderDataset, RandomDataset,
+                                SampleRequest, ShareGPTDataset, SonnetDataset,
+@@ -260,6 +260,7 @@ async def benchmark(
+     goodput_config_dict: dict[str, float],
+     max_concurrency: Optional[int],
+     lora_modules: Optional[Iterable[str]],
++    extra_body: Optional[dict],
+ ):
+     if backend in ASYNC_REQUEST_FUNCS:
+         request_func = ASYNC_REQUEST_FUNCS[backend]
+@@ -287,6 +288,7 @@ async def benchmark(
+         logprobs=logprobs,
+         multi_modal_content=test_mm_content,
+         ignore_eos=ignore_eos,
++        extra_body=extra_body,
+     )
+
+     test_output = await request_func(request_func_input=test_input)
+@@ -313,7 +315,8 @@ async def benchmark(
+                                          output_len=test_output_len,
+                                          logprobs=logprobs,
+                                          multi_modal_content=test_mm_content,
+-                                         ignore_eos=ignore_eos)
++                                         ignore_eos=ignore_eos,
++                                         extra_body=extra_body)
+         profile_output = await request_func(request_func_input=profile_input)
+         if profile_output.success:
+             print("Profiler started")
+@@ -363,7 +366,8 @@ async def benchmark(
+                                               output_len=output_len,
+                                               logprobs=logprobs,
+                                               multi_modal_content=mm_content,
+-                                              ignore_eos=ignore_eos)
++                                              ignore_eos=ignore_eos,
++                                              extra_body=extra_body)
+         tasks.append(
+             asyncio.create_task(
+                 limited_request_func(request_func_input=request_func_input,
+@@ -599,6 +603,17 @@ def main(args: argparse.Namespace):
+         elif args.dataset_path in AIMODataset.SUPPORTED_DATASET_PATHS:
+             dataset_class = AIMODataset
+             args.hf_split = "train"
++        elif args.dataset_path in MATH500Dataset.SUPPORTED_DATASET_PATHS:
++            dataset_class = MATH500Dataset
++            args.hf_split = "test"
++        elif args.dataset_path in GPQADataset.SUPPORTED_DATASET_PATHS:
++            dataset_class = GPQADataset
++            args.hf_split = "train"
++            args.hf_subset = "gpqa_diamond"
++        elif args.dataset_path in LCBDataset.SUPPORTED_DATASET_PATHS:
++            dataset_class = LCBDataset
++            args.hf_split = "test"
++            args.hf_subset = "release_v5"
+         else:
+             supported_datasets = set([
+                 dataset_name for cls in HuggingFaceDataset.__subclasses__()
+@@ -656,6 +671,10 @@ def main(args: argparse.Namespace):
+     gc.collect()
+     gc.freeze()
+
++    extra_body = {
++        "temperature": args.temperature,
++    }
++
+     benchmark_result = asyncio.run(
+         benchmark(
+             backend=backend,
+@@ -678,6 +697,7 @@ def main(args: argparse.Namespace):
+             goodput_config_dict=goodput_config_dict,
+             max_concurrency=args.max_concurrency,
+             lora_modules=args.lora_modules,
++            extra_body=extra_body,
+         ))
+
+     # Save config and results to json
+@@ -703,15 +723,6 @@ def main(args: argparse.Namespace):
+                         "Invalid metadata format. Please use KEY=VALUE format."
+                     )
+
+-        if not args.save_detailed:
+-            # Remove fields with too many data points
+-            for field in [
+-                    "input_lens", "output_lens", "ttfts", "itls",
+-                    "generated_texts", "errors"
+-            ]:
+-                if field in result_json:
+-                    del result_json[field]
+-
+         # Traffic
+         result_json["request_rate"] = (args.request_rate if args.request_rate
+                                        < float("inf") else "inf")
+@@ -721,6 +732,20 @@ def main(args: argparse.Namespace):
+         # Merge with benchmark result
+         result_json = {**result_json, **benchmark_result}
+
++        if not args.save_detailed:
++            # Remove fields with too many data points
++            for field in [
++                    "input_lens", "output_lens", "ttfts", "itls",
++                    "generated_texts", "errors"
++            ]:
++                if field in result_json:
++                    del result_json[field]
++        else:
++            for field in ["itls"]:
++                # Remove fields with too many data points
++                if field in result_json:
++                    del result_json[field]
++
+         # Save to file
+         base_model_id = model_id.split("/")[-1]
+         max_concurrency_str = (f"-concurrency{args.max_concurrency}"
+@@ -1025,6 +1050,11 @@ if __name__ == "__main__":
+                         "launching the server. For each request, the "
+                         "script chooses a LoRA module at random.")
+
++    parser.add_argument("--temperature",
++                        type=float,
++                        default=0.0,
++                        help="Temperature to use for sampling.")
++
+     args = parser.parse_args()
+
+     main(args)
+diff --git a/vllm/model_executor/layers/rotary_embedding.py b/vllm/model_executor/layers/rotary_embedding.py
+index 624ed63a..836a4895 100644
+--- a/vllm/model_executor/layers/rotary_embedding.py
++++ b/vllm/model_executor/layers/rotary_embedding.py
+@@ -163,10 +163,14 @@ class RotaryEmbedding(CustomOp):
+
+         # __setattr__ in nn.Module (called by `self.cos_sin_cache = ...`)
+         # is expensive, so avoid calling it if possible
++        q_dtype = query.dtype
++        q_device = query.device
+         if self.cos_sin_cache.device != query.device or \
+             self.cos_sin_cache.dtype != query.dtype:
+-            self.cos_sin_cache = self.cos_sin_cache.to(query.device,
+-                                                       dtype=query.dtype)
++            query = query.to(self.cos_sin_cache.device,
++                             dtype=self.cos_sin_cache.dtype)
++            key = key.to(self.cos_sin_cache.device,
++                         dtype=self.cos_sin_cache.dtype)
+
+         # ops.rotary_embedding()/batched_rotary_embedding()
+         # are in-place operations that update the query and key tensors.
+@@ -178,7 +182,8 @@ class RotaryEmbedding(CustomOp):
+         else:
+             ops.rotary_embedding(positions, query, key, self.head_size,
+                                  self.cos_sin_cache, self.is_neox_style)
+-        return query, key
++        return query.to(q_device, dtype=q_dtype), key.to(q_device,
++                                                          dtype=q_dtype)
+
+     def forward_xpu(
+         self,
+diff --git a/vllm/v1/core/sched/scheduler.py b/vllm/v1/core/sched/scheduler.py
+index 81f8ad25..d3d936df 100644
+--- a/vllm/v1/core/sched/scheduler.py
++++ b/vllm/v1/core/sched/scheduler.py
+@@ -6,6 +6,7 @@ import time
+ from collections import deque
+ from collections.abc import Iterable
+ from typing import Optional, Union
++import numpy as np
+
+ from vllm.config import CacheConfig, LoRAConfig, ModelConfig, SchedulerConfig
+ from vllm.logger import init_logger
+@@ -16,6 +17,7 @@ from vllm.v1.core.kv_cache_manager import KVCacheManager
+ from vllm.v1.core.sched.interface import SchedulerInterface
+ from vllm.v1.core.sched.output import (CachedRequestData, NewRequestData,
+                                        SchedulerOutput)
++from vllm.v1.core.sched.loop_detector import LoopDetector
+ from vllm.v1.core.sched.utils import check_stop
+ from vllm.v1.engine import (EngineCoreEventType, EngineCoreOutput,
+                             EngineCoreOutputs)
+@@ -112,6 +114,19 @@ class Scheduler(SchedulerInterface):
+         self.encoder_cache_manager = EncoderCacheManager(
+             cache_size=encoder_cache_size)
+
++        # This is to avoid deadlock generation in Reasoning Models
++        self.loop_detector = LoopDetector(
++            window_width=4096,
++            n=48,
++            max_limits=5
++        )
++        logger.info(
++            f"Loop detector initialized with window_width={self.loop_detector.window_width}, "
++            f"n={self.loop_detector.n}, max_limits={self.loop_detector.max_limits}"
++        )
++        self.step_counter: int = 0
++        self.step_interval: int = 50
++
+     def schedule(self) -> SchedulerOutput:
+         # NOTE(woosuk) on the scheduling algorithm:
+         # There's no "decoding phase" nor "prefill phase" in the scheduler.
+@@ -559,6 +574,9 @@ class Scheduler(SchedulerInterface):
+         outputs: list[EngineCoreOutput] = []
+         spec_decoding_stats: Optional[SpecDecodingStats] = None
+
++        # Update the step counter
++        self.step_counter += 1
++
+         # NOTE(woosuk): As len(self.running) can be up to 1K or more, the below
+         # loop can be a performance bottleneck. We should do our best to avoid
+         # expensive operations inside the loop.
+@@ -621,6 +639,16 @@ class Scheduler(SchedulerInterface):
+                 # Check for stop and update request state.
+                 # This must be called before we make the EngineCoreOutput.
+                 stopped = check_stop(request, self.max_model_len)
++
++                # Check for loop detection
++                if self.step_counter % self.step_interval == 0:
++                    if not stopped:
++                        if self.loop_detector.detect(np.array(request.all_token_ids)):
++                            logger.info(
++                                f"[Loop] detected in request {request.request_id}, stopping the request, prompt {request.prompt}.")
++                            request.status = RequestStatus.FINISHED_STOPPED
++                            stopped = True
++
+                 if stopped:
+                     self._free_request(request)
+                     del new_token_ids[num_new:]  # Trim new tokens if needed.

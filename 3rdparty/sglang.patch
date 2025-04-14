@@ -1,0 +1,74 @@
+diff --git a/python/sglang/srt/managers/scheduler.py b/python/sglang/srt/managers/scheduler.py
+index e917f42b..83b1abbe 100644
+--- a/python/sglang/srt/managers/scheduler.py
++++ b/python/sglang/srt/managers/scheduler.py
+@@ -104,6 +104,7 @@ from sglang.srt.managers.schedule_policy import (
+ from sglang.srt.managers.scheduler_output_processor_mixin import (
+     SchedulerOutputProcessorMixin,
+ )
++from sglang.srt.managers.loop_detector import LoopDetector
+ from sglang.srt.managers.session_controller import Session
+ from sglang.srt.managers.tp_worker import TpModelWorker
+ from sglang.srt.managers.tp_worker_overlap_thread import TpModelWorkerClient
+@@ -170,6 +171,16 @@ class Scheduler(
+         tp_rank: int,
+         dp_rank: Optional[int],
+     ):
++        # Used to end the endless repeating output
++        self.loop_detector = LoopDetector(
++            window_width=4096,
++            n=48,
++            max_limits=5
++        )
++        self.step_counter:int = 0
++        self.step_interval:int = 50
++        logger.info(f"Loop dectector initialized with window_width={self.loop_detector.window_width}, n={self.loop_detector.n}, max_limits={self.loop_detector.max_limits}")
++
+         # Parse args
+         self.server_args = server_args
+         self.tp_rank = tp_rank
+@@ -595,6 +606,7 @@ class Scheduler(
+             self.cur_batch = batch
+
+             if batch:
++                self.step_counter += 1
+                 result = self.run_batch(batch)
+                 self.process_batch_result(batch, result)
+             else:
+diff --git a/python/sglang/srt/managers/scheduler_output_processor_mixin.py b/python/sglang/srt/managers/scheduler_output_processor_mixin.py
+index 13158d93..f682a4ec 100644
+--- a/python/sglang/srt/managers/scheduler_output_processor_mixin.py
++++ b/python/sglang/srt/managers/scheduler_output_processor_mixin.py
+@@ -1,11 +1,16 @@
+ from __future__ import annotations
+
+ from typing import TYPE_CHECKING, List, Optional, Tuple, Union
++import numpy as np
++import logging
+
+ from sglang.srt.layers.logits_processor import LogitsProcessorOutput
+ from sglang.srt.managers.io_struct import BatchEmbeddingOut, BatchTokenIDOut
+ from sglang.srt.managers.schedule_batch import BaseFinishReason, Req, ScheduleBatch
+
++logger = logging.getLogger(__name__)
++
++
+ if TYPE_CHECKING:
+     from sglang.srt.managers.scheduler import (
+         EmbeddingBatchResult,
+@@ -223,6 +228,16 @@ class SchedulerOutputProcessorMixin:
+                 req.output_ids.append(next_token_id)
+
+             req.check_finished()
++            # Add deadlock detection logic
++            if self.step_counter % self.step_interval == 0:
++                if not req.finished():
++                    if self.loop_detector.detect(np.array(req.output_ids)):
++                        from sglang.srt.managers.schedule_batch import FINISH_ABORT
++                        req.finished_reason = FINISH_ABORT(
++                            message="Loop detected in the output sequence."
++                        )
++                        logger.info(f"[Loop] deteced in requests {req.rid}, with input text {req.origin_input_text}")
++
+             if req.finished():
+                 self.tree_cache.cache_finished_req(req)
